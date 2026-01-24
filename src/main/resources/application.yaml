@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: external-api-integration
+  cache:
+    type: redis
+  data:
+    redis:
+      host: redis
+      port: 6379
+      # time-to-live: 3600000
+
+weather:
+  api:
+    key: ${WEATHER_API_KEY:dummy_key_for_testing}
+
