@@ -2,11 +2,15 @@ package com.company.Integration.Service;
 
 import com.company.Integration.Client.WeatherApiClient;
 import com.company.Integration.DTO.WeatherResponse;
+import com.company.Integration.Kafka.AuditEvent;
+import com.company.Integration.Kafka.KafkaAuditEventProducer;
 import com.company.Integration.Util.Constants;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 @Service
 @Slf4j
@@ -15,6 +19,9 @@ public class WeatherService {
     @Autowired
     private WeatherApiClient weatherApiClient;
 
+    @Autowired
+    private KafkaAuditEventProducer kafkaAuditEventProducer;
+
     @Cacheable(value = Constants.WEATHER_CACHE,key = "#city")
     public WeatherResponse getWeather(String city){
         log.info("Fetching weather for city={}",city);
@@ -22,6 +29,13 @@ public class WeatherService {
         WeatherResponse weatherResponse = weatherApiClient.getWeather(city);
 
         log.info("Weather fetched successfully for city={}",city);
+
+        kafkaAuditEventProducer.sendAuditEvent(new AuditEvent(
+                "WEATEHR_API_CALL",
+                "Weather fetched for city :{}"+city,
+                LocalDateTime.now()
+        ));
+
 
         return weatherResponse;
     }
