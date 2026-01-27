@@ -1,18 +1,138 @@
+# ==========================================
+# SERVER CONFIGURATION
+# ==========================================
 server:
   port: 8080
+  # This is INSIDE Docker container
+  # Docker maps it to 8081 on your machine
 
+# ==========================================
+# SPRING APPLICATION
+# ==========================================
 spring:
   application:
-    name: external-api-integration
-  cache:
-    type: redis
+    name: integration-service
+
+  # ==========================================
+  # KAFKA CONFIGURATION
+  # ==========================================
+  kafka:
+    # 🔗 WHERE TO FIND KAFKA
+    # "kafka" = service name from docker-compose.yml
+    # "29092" = internal port (containers talk to each other)
+    bootstrap-servers: kafka:29092
+    
+    # 📤 PRODUCER SETTINGS (Publishing Events)
+    producer:
+      # How to convert Java objects to JSON for Kafka
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      
+      # Ensure message delivery
+      acks: all
+      retries: 3
+      
+      # Performance tuning
+      batch-size: 16384
+      linger-ms: 10
+    
+    # 📥 CONSUMER SETTINGS (Receiving Events)
+    consumer:
+      # Consumer group name (must match @KafkaListener)
+      group-id: audit-group
+      
+      # Start reading from beginning if no offset exists
+      auto-offset-reset: earliest
+      
+      # How to convert JSON back to Java objects
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      
+      # Trust all packages for deserialization (dev only)
+      properties:
+        spring.json.trusted.packages: "*"
+
+      # Manual commit control (advanced)
+      enable-auto-commit: false
+
+  # ==========================================
+  # REDIS CONFIGURATION
+  # ==========================================
   data:
     redis:
+      # 🔗 WHERE TO FIND REDIS
+      # "redis" = service name from docker-compose.yml
       host: redis
       port: 6379
-      # time-to-live: 3600000
+      
+      # Connection pool settings
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+      
+      # Timeout settings
+      timeout: 2000ms
 
-weather:
-  api:
-    key: ${WEATHER_API_KEY:dummy_key_for_testing}
+  # ==========================================
+  # CACHE CONFIGURATION
+  # ==========================================
+  cache:
+    type: redis
+    redis:
+      # How long to keep cached data (in milliseconds)
+      time-to-live: 600000  # 10 minutes
+      
+      # Don't cache null values
+      cache-null-values: false
+      
+      # Key prefix for all cache entries
+      key-prefix: "integration::"
 
+# ==========================================
+# WEBCLIENT CONFIGURATION (External APIs)
+# ==========================================
+webclient:
+  weather:
+    base-url: https://api.openweathermap.org/data/2.5
+    timeout: 5000
+    api:
+      key: ${WEATHER_API_KEY}
+  
+#  currency:
+#    base-url: https://api.exchangerate.host
+#    timeout: 3000
+
+# ==========================================
+# LOGGING CONFIGURATION
+# ==========================================
+logging:
+  level:
+    root: INFO
+    com.company.integration: DEBUG
+    org.springframework.kafka: DEBUG
+    org.springframework.data.redis: DEBUG
+  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+# ==========================================
+# ACTUATOR (Health Checks)
+# ==========================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  
+  endpoint:
+    health:
+      show-details: always
+  
+  health:
+    redis:
+      enabled: true
+    kafka:
+      enabled: true
