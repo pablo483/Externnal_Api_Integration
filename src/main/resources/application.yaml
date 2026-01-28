@@ -21,6 +21,8 @@ spring:
     # "kafka" = service name from docker-compose.yml
     # "29092" = internal port (containers talk to each other)
     bootstrap-servers: kafka:29092
+    listener:
+      ack-mode: manual_immediate
     
     # 📤 PRODUCER SETTINGS (Publishing Events)
     producer:
@@ -75,6 +77,7 @@ spring:
       
       # Timeout settings
       timeout: 2000ms
+
 
   # ==========================================
   # CACHE CONFIGURATION
