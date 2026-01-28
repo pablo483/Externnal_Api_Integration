@@ -22,21 +22,35 @@ public class WeatherService {
     @Autowired
     private KafkaAuditEventProducer kafkaAuditEventProducer;
 
-    @Cacheable(value = Constants.WEATHER_CACHE,key = "#city")
-    public WeatherResponse getWeather(String city){
-        log.info("Fetching weather for city={}",city);
+    @Cacheable(value = Constants.WEATHER_CACHE, key = "#city")
+    public WeatherResponse getWeather(String city) {
+        log.info("Fetching weather for city={}", city);
 
         WeatherResponse weatherResponse = weatherApiClient.getWeather(city);
 
-        log.info("Weather fetched successfully for city={}",city);
+        log.info("Weather fetched successfully for city={}", city);
 
-        kafkaAuditEventProducer.sendAuditEvent(new AuditEvent(
-                "WEATEHR_API_CALL",
-                "Weather fetched for city :{}"+city,
-                LocalDateTime.now()
-        ));
+        // ✅ Audit logging (asynchronous - never blocks)
+        sendAuditEvent(city, weatherResponse);
 
 
         return weatherResponse;
+    }
+
+ //✅ PRODUCTION PATTERN: Isolated error handling for side effects
+    private void sendAuditEvent(String city, WeatherResponse weatherResponse) {
+        try {
+            AuditEvent event = new AuditEvent(
+                    "WEATEHR_API_CALL",
+                    "Weather fetched for city :{}" + city,
+                    LocalDateTime.now()
+            );
+
+            kafkaAuditEventProducer.sendAuditEvent(event);
+
+        }catch (Exception e){
+            log.warn("Failed to publish audit event for city:{}",city, e);
+
+        }
     }
 }
